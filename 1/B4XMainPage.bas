@@ -17,8 +17,10 @@ Sub Class_Globals
 	Private Provider As FileProvider
 	Private LblMessage As B4XView
 	Private LblVersion As B4XView
+	Private ServerUrl As String = "https://github.com/pyhoon/update-apk-b4a/tree/main/2"
 	Private FileToInstall As String = "2.apk"
 	Private latestVersion As Int = 2
+	Private ion As Object
 End Sub
 
 Public Sub Initialize
@@ -34,15 +36,28 @@ Private Sub B4XPage_Created (Root1 As B4XView)
 		LblMessage.Visible = False
 	End If
 	Provider.Initialize
-	If File.Exists(File.DirInternal, FileToInstall) = False Then
-		File.Copy(File.DirAssets, FileToInstall, File.DirInternal, FileToInstall)
-	End If
 End Sub
 
 Private Sub BtnUpdate_Click
 	If Application.VersionCode = latestVersion Then
 		xui.MsgboxAsync("You already have the latest version", "")
 		Return
+	End If
+	If File.Exists(File.DirInternal, FileToInstall) = False Then
+		Log("Downloading updates from remote server...")
+		Dim job As HttpJob
+		job.Initialize("", Me)
+		job.Download(ServerUrl & "/" & FileToInstall)
+		Wait For (job) JobDone(job As HttpJob)
+		If job.Success Then
+			Dim out As OutputStream = File.OpenOutput(File.DirInternal, FileToInstall, False)
+			File.Copy2(job.GetInputStream, out)
+			out.Close '<------ very important
+			Log("Download complete")
+		Else
+			Log("Error: " & job.ErrorMessage)
+		End If
+		job.Release
 	End If
 	SendInstallIntent
 End Sub
@@ -52,10 +67,24 @@ Private Sub SendInstallIntent
 	If Phone.SdkVersion >= 24 Then
 		File.Copy(File.DirInternal, FileToInstall, Provider.SharedFolder, FileToInstall)
 		i.Initialize("android.intent.action.INSTALL_PACKAGE", Provider.GetFileUri(FileToInstall))
-		i.Flags = Bit.Or(i.Flags, 1) 'FLAG_GRANT_READ_URI_PERMISSION
+		i.Flags = Bit.Or(i.Flags, 0x00000001) 'FLAG_GRANT_READ_URI_PERMISSION
 	Else
 		i.Initialize(i.ACTION_VIEW, "file://" & File.Combine(File.DirInternal, FileToInstall))
 		i.SetType("application/vnd.android.package-archive")
 	End If
+	If Phone.SdkVersion >= 29 Then
+		i.PutExtra("android.intent.extra.INSTALLER_PACKAGE_NAME", Application.PackageName)
+	End If
 	StartActivity(i)
+End Sub
+
+Public Sub StartActivityForResult (i As Intent)
+	Dim jo As JavaObject = GetBA
+	ion = jo.CreateEvent("anywheresoftware.b4a.IOnActivityResult", "ion", Null)
+	jo.RunMethod("startActivityForResult", Array As Object(ion, i))
+End Sub
+
+Public Sub GetBA As Object
+	Dim jo As JavaObject = Me
+	Return jo.RunMethod("getBA", Null)
 End Sub
