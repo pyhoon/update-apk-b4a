@@ -17,7 +17,7 @@ Sub Class_Globals
 	Private Provider As FileProvider
 	Private LblMessage As B4XView
 	Private LblVersion As B4XView
-	Private ServerUrl As String = "https://github.com/pyhoon/update-apk-b4a/tree/main/2"
+	Private ServerUrl As String = "https://github.com/pyhoon/update-apk-b4a/blob/main/2/Objects"
 	Private FileToInstall As String = "2.apk"
 	Private latestVersion As Int = 2
 	Private ion As Object
